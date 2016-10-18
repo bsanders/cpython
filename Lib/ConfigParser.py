@@ -230,7 +230,8 @@ class MissingSectionHeaderError(ParsingError):
 
 class RawConfigParser:
     def __init__(self, defaults=None, dict_type=_default_dict,
-                 allow_no_value=False):
+                 allow_no_value=False, default_section_name=''):
+        self.default_section_name = default_section_name
         self._dict = dict_type
         self._sections = self._dict()
         self._defaults = self._dict()
@@ -474,8 +475,10 @@ class RawConfigParser:
         cursect = None                        # None, or a dictionary
         optname = None
         lineno = 0
+        filepos = 0
         e = None                              # None, or an exception
         while True:
+            filepos = fp.tell()
             line = fp.readline()
             if not line:
                 break
@@ -509,7 +512,13 @@ class RawConfigParser:
                     optname = None
                 # no section header in the file?
                 elif cursect is None:
-                    raise MissingSectionHeaderError(fpname, lineno, line)
+                    if not self.default_section_name:
+                            raise MissingSectionHeaderError(fpname, lineno, line)
+                    sectname = self.default_section_name
+                    cursect = self._dict()
+                    cursect['__name__'] = sectname
+                    self._sections[sectname] = cursect
+                    fp.seek(filepos)
                 # an option line?
                 else:
                     mo = self._optcre.match(line)
